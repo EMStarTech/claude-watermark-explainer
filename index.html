@@ -1,10 +1,28 @@
 <!DOCTYPE html>
+<!--
+  What the watermark actually does
+  =====================================================
+  An interactive explainer on Claude's text watermark: how it works, what a
+  detection result can and cannot establish, and why no third party can read it.
+
+    =====================================================
+  Current build: v1.2.1
+  Deploy as index.html. Self-contained; only external request is Google Fonts.
+-->
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>What the watermark actually does</title>
-<meta name="description" content="An explainer for researchers and educators on how Claude's text watermark works, what it can prove, and why no third party can detect it.">
+<meta name="description" content="How Claude's text watermark works, what it can prove, and why no third party can detect it.">
+<meta property="og:title" content="What the watermark actually does">
+<meta property="og:description" content="Claude now marks the text it writes. The mark biases word choice, and reading it requires a key only Anthropic holds. An interactive explainer.">
+<meta property="og:url" content="https://emstartech.github.io/claude-watermark-explainer/">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="EMStarTech">
+<meta name="twitter:card" content="summary_large_image">
+<!-- Add once a 1200x630 preview image is committed to the repo:
+<meta property="og:image" content="https://emstartech.github.io/claude-watermark-explainer/preview.png"> -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&family=Newsreader:ital,opsz,wght@0,6..72,300;0,6..72,400;0,6..72,600;1,6..72,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
