@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>What the watermark actually does</title>
+<meta name="description" content="An explainer for researchers and educators on how Claude's text watermark works, what it can prove, and why no third party can detect it.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&family=Newsreader:ital,opsz,wght@0,6..72,300;0,6..72,400;0,6..72,600;1,6..72,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#DBE1E2;
+  --panel:#EDF1F1;
+  --panel-2:#CFD7D8;
+  --ink:#111619;
+  --ink-soft:#4B565D;
+  --ink-faint:#7C878D;
+  --blue:#1E3CC0;
+  --blue-wash:#C9D2F2;
+  --red:#B2312A;
+  --noise:#939B9C;
+  --rule:#B4BEC0;
+  --max:63rem;
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{
+  margin:0;
+  background:var(--paper);
+  color:var(--ink);
+  font-family:"Newsreader",Georgia,serif;
+  font-size:1.1rem;
+  line-height:1.62;
+  font-weight:400;
+}
+.wrap{max-width:var(--max);margin:0 auto;padding:0 1.6rem}
+
+/* ---------- marginalia structure ---------- */
+.block{
+  display:grid;
+  grid-template-columns:9.5rem 1fr;
+  gap:2.2rem;
+  padding:3.4rem 0;
+  border-top:1px solid var(--rule);
+}
+.block:first-of-type{border-top:none}
+.mark{
+  font-family:"IBM Plex Mono",monospace;
+  font-size:.72rem;
+  line-height:1.5;
+  letter-spacing:.06em;
+  text-transform:uppercase;
+  color:var(--blue);
+  padding-top:.55rem;
+  position:sticky;
+  top:1.4rem;
+  align-self:start;
+}
+.mark span{display:block;color:var(--ink-faint);text-transform:none;letter-spacing:0;font-size:.7rem;margin-top:.45rem}
+.body{max-width:36rem}
+.body > *:first-child{margin-top:0}
+.body > *:last-child{margin-bottom:0}
+
+h1,h2,h3{font-family:"Bricolage Grotesque",system-ui,sans-serif;font-weight:800;letter-spacing:-.02em;line-height:1.05}
+h2{font-size:clamp(1.55rem,3.4vw,2.1rem);margin:0 0 1.1rem}
+h3{font-size:1.02rem;font-weight:600;letter-spacing:.01em;margin:2.1rem 0 .5rem}
+p{margin:0 0 1.05rem}
+strong{font-weight:600}
+em{font-style:italic}
+a{color:var(--blue);text-decoration:underline;text-underline-offset:.16em;text-decoration-thickness:1px}
+
+/* ---------- hero ---------- */
+.hero{padding:5rem 0 3.6rem}
+.eyebrow{
+  font-family:"IBM Plex Mono",monospace;font-size:.72rem;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--ink-faint);margin:0 0 2.2rem;
+}
+.hero h1{font-size:clamp(2.3rem,6.2vw,4.1rem);margin:0 0 1.6rem;max-width:19ch}
+.hero .lede{font-size:clamp(1.15rem,2.2vw,1.32rem);color:var(--ink-soft);max-width:36rem;margin:0}
+
+/* the live fork */
+.fork-stage{
+  margin:3rem 0 0;
+  padding:2.2rem 2rem;
+  background:var(--panel);
+  border:1px solid var(--rule);
+  border-radius:2px;
+}
+.fork-line{
+  font-family:"Newsreader",serif;
+  font-size:clamp(1.3rem,3.4vw,1.85rem);
+  line-height:1.35;
+  margin:0;
+}
+.slot{
+  display:inline-block;min-width:6.2ch;
+  color:var(--blue);
+  border-bottom:2px solid var(--blue-wash);
+  transition:opacity .28s ease;
+}
+.slot.fade{opacity:0}
+.fork-note{
+  font-family:"IBM Plex Mono",monospace;font-size:.74rem;line-height:1.6;
+  color:var(--ink-faint);margin:1.4rem 0 0;max-width:44ch;
+}
+
+/* ---------- instrument ---------- */
+.instrument{
+  border:1px solid var(--ink);
+  border-radius:2px;
+  background:var(--panel);
+  margin:1.8rem 0 0;
+  overflow:hidden;
+}
+.inst-head{
+  padding:1rem 1.4rem;border-bottom:1px solid var(--ink);
+  font-family:"IBM Plex Mono",monospace;font-size:.72rem;
+  letter-spacing:.12em;text-transform:uppercase;
+}
+.inst-grid{display:grid;grid-template-columns:1fr 1fr}
+.controls{padding:1.5rem 1.4rem;border-right:1px solid var(--rule)}
+.readout{padding:1.5rem 1.4rem;background:var(--panel-2)}
+
+.ctl{margin:0 0 1.6rem}
+.ctl:last-child{margin-bottom:0}
+.ctl-label{
+  font-family:"IBM Plex Mono",monospace;font-size:.72rem;
+  letter-spacing:.04em;color:var(--ink-soft);display:block;margin:0 0 .6rem;
+}
+.ctl-label b{color:var(--ink);font-weight:600}
+
+.keys{display:flex;flex-direction:column;gap:.35rem}
+.keybtn{
+  font-family:"IBM Plex Mono",monospace;font-size:.76rem;
+  text-align:left;padding:.55rem .7rem;cursor:pointer;
+  background:transparent;color:var(--ink-soft);
+  border:1px solid var(--rule);border-radius:2px;
+  transition:background .12s ease,color .12s ease,border-color .12s ease;
+}
+.keybtn:hover{border-color:var(--ink-faint);color:var(--ink)}
+.keybtn[aria-pressed="true"]{background:var(--blue);border-color:var(--blue);color:#fff}
+.keybtn:focus-visible{outline:2px solid var(--red);outline-offset:2px}
+
+input[type=range]{
+  width:100%;accent-color:var(--blue);height:1.4rem;margin:0;cursor:pointer;
+}
+input[type=range]:focus-visible{outline:2px solid var(--red);outline-offset:3px}
+
+.gauge{height:.55rem;background:#fff;border:1px solid var(--rule);border-radius:2px;overflow:hidden;margin:.5rem 0 0}
+.gauge i{display:block;height:100%;width:0%;background:var(--blue);transition:width .3s ease,background .3s ease}
+.gauge.chance i{background:var(--noise)}
+.gauge.warn i{background:var(--red)}
+
+.verdict{
+  font-family:"Bricolage Grotesque",sans-serif;font-weight:800;
+  font-size:clamp(1.5rem,4vw,2rem);line-height:1.1;letter-spacing:-.02em;
+  margin:.2rem 0 .7rem;
+}
+.readout p{font-size:.95rem;color:var(--ink-soft);margin:0 0 .8rem}
+.readout p:last-child{margin-bottom:0}
+.stat{font-family:"IBM Plex Mono",monospace;font-size:.72rem;color:var(--ink-faint);letter-spacing:.02em}
+
+/* ---------- workflow table ---------- */
+.flows{margin:1.6rem 0 0;border-top:1px solid var(--rule)}
+.flow{
+  display:grid;grid-template-columns:1fr auto;gap:1.4rem;align-items:baseline;
+  padding:.95rem 0;border-bottom:1px solid var(--rule);
+}
+.flow b{font-weight:600;display:block;font-size:1rem}
+.flow small{display:block;color:var(--ink-soft);font-size:.88rem;line-height:1.45;margin-top:.15rem}
+.tag{
+  font-family:"IBM Plex Mono",monospace;font-size:.68rem;letter-spacing:.06em;
+  text-transform:uppercase;white-space:nowrap;padding:.22rem .5rem;border-radius:2px;
+}
+.tag.none{background:var(--panel-2);color:var(--ink-soft)}
+.tag.faint{background:var(--blue-wash);color:var(--blue)}
+.tag.full{background:var(--blue);color:#fff}
+
+/* ---------- pull ---------- */
+.pull{
+  border-left:2px solid var(--red);padding:.2rem 0 .2rem 1.2rem;
+  margin:1.8rem 0;font-size:1.05rem;color:var(--ink);
+}
+.pull cite{display:block;font-family:"IBM Plex Mono",monospace;font-size:.7rem;
+  font-style:normal;color:var(--ink-faint);margin-top:.6rem;letter-spacing:.04em}
+
+footer{border-top:1px solid var(--rule);padding:2.6rem 0 4rem;font-size:.85rem;color:var(--ink-faint)}
+footer p{margin:0 0 .6rem;max-width:44rem}
+
+@media (max-width:760px){
+  .block{grid-template-columns:1fr;gap:.6rem;padding:2.6rem 0}
+  .mark{position:static;padding-top:0}
+  .inst-grid{grid-template-columns:1fr}
+  .controls{border-right:none;border-bottom:1px solid var(--rule)}
+  .hero{padding:3.2rem 0 2.4rem}
+}
+@media (prefers-reduced-motion:reduce){
+  *{transition:none!important;animation:none!important}
+}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+
+  <header class="hero">
+    <p class="eyebrow">A working explainer for anyone who writes for a living</p>
+    <h1>What the watermark actually does</h1>
+    <p class="lede">Claude now marks the text it writes. The mark adds no tag, no hidden character, and no stylistic tell. It works by biasing which word gets picked when two words are equally good. Reading it requires a key that only Anthropic holds.</p>
+
+    <div class="fork-stage">
+      <p class="fork-line">The weather today was cold and <span class="slot" id="slot">overcast</span>.</p>
+      <p class="fork-note">Every candidate here is a fine ending to the sentence. The model has to choose one. Ordinarily that choice comes from a random number. Watermarking replaces the random number with one derived from a secret key.</p>
+    </div>
+  </header>
+
+  <!-- 1 -->
+  <section class="block">
+    <div class="mark">The mechanism<span>What is actually being changed</span></div>
+    <div class="body">
+      <h2>Nothing is added to the text</h2>
+      <p>A language model writes one word at a time. At each step it holds a short list of plausible next words and picks one. Many picks are constrained. After <em>Isaac Newton's most famous work was called Principia</em>, the next word has to be <em>Mathematica</em>. Many others are free. <em>Overcast</em> or <em>grey</em>. <em>Careful</em> or <em>cautious</em>. The sentence carries the same meaning either way.</p>
+      <p>Watermarking lives entirely in those free choices. It does not insert characters, invisible Unicode, trailing whitespace, or metadata. It does not push the model toward strange vocabulary. It changes only <strong>the source of the randomness</strong> used to break ties, from an arbitrary number to one computed from a secret key and the preceding words.</p>
+      <p>Anthropic offers this analogy. A game of Monopoly runs normally on dice rolls. Replace the dice with consecutive digits of pi, starting at an undisclosed position. The players notice nothing. An observer who knows pi can examine the finished game and determine where the moves came from.</p>
+      <p>The method is a version of SynthID-Text, published by Google DeepMind in <em>Nature</em> in 2024, in a line of work going back to a 2022 proposal by Scott Aaronson.</p>
+    </div>
+  </section>
+
+  <!-- 2 -->
+  <section class="block">
+    <div class="mark">The instrument<span>Move the controls</span></div>
+    <div class="body">
+      <h2>Why no third party can do this</h2>
+      <p>The signal is a correlation between the text and a key. Without the key there is no correlation to measure, and the text becomes statistically indistinguishable from unwatermarked text. The gap here belongs to the design of the system. It will not close when someone builds a better tool.</p>
+      <p>Below is a simplified model of what a detector sees. Change the key, the passage length, and the share of the final text that carries Claude's word choices.</p>
+
+      <div class="instrument">
+        <div class="inst-head">Detection model</div>
+        <div class="inst-grid">
+          <div class="controls">
+            <div class="ctl">
+              <span class="ctl-label">Who is running the check?</span>
+              <div class="keys" role="group" aria-label="Detector">
+                <button class="keybtn" id="k0" aria-pressed="true" data-key="right">Anthropic, holding the key</button>
+                <button class="keybtn" id="k1" aria-pressed="false" data-key="wrong">A third party, guessing at the key</button>
+                <button class="keybtn" id="k2" aria-pressed="false" data-key="style">Turnitin-class tool, no key, reads style</button>
+              </div>
+            </div>
+            <div class="ctl">
+              <span class="ctl-label">Passage length: <b id="lenOut">3,000 words</b></span>
+              <input type="range" id="len" min="50" max="8000" step="50" value="3000" aria-label="Passage length in words">
+            </div>
+            <div class="ctl">
+              <span class="ctl-label">Share of wording that is Claude's: <b id="mixOut">15%</b></span>
+              <input type="range" id="mix" min="0" max="100" step="1" value="15" aria-label="Percentage of wording chosen by Claude">
+            </div>
+          </div>
+          <div class="readout">
+            <div class="verdict" id="verdict">Below threshold</div>
+            <div class="gauge" id="gauge"><i id="bar"></i></div>
+            <p id="explain" style="margin-top:1rem">&nbsp;</p>
+            <p class="stat" id="stat">&nbsp;</p>
+          </div>
+        </div>
+      </div>
+
+      <p style="margin-top:1.4rem"><span class="stat">Simplified for illustration. Real detection uses a scoring function over many token positions. The thresholds here indicate direction only. Anthropic has published no figures.</span></p>
+    </div>
+  </section>
+
+  <!-- 3 -->
+  <section class="block">
+    <div class="mark">The real question<span>Does your workflow leave a mark</span></div>
+    <div class="body">
+      <h2>It depends on whose words survive</h2>
+      <p>The common worry is that using Claude at all will brand a document as machine-written. That is not how the mark attaches. The watermark can only live in words Claude chose. If Claude's involvement produced no words in your final document, there is nothing there.</p>
+
+      <div class="flows">
+        <div class="flow">
+          <div><b>Talking through an argument</b><small>You describe your thesis, Claude pushes back, you revise it yourself.</small></div>
+          <span class="tag none">No mark</span>
+        </div>
+        <div class="flow">
+          <div><b>Critique you act on</b><small>Claude says the third paragraph buries the claim. You rewrite it in your own words.</small></div>
+          <span class="tag none">No mark</span>
+        </div>
+        <div class="flow">
+          <div><b>Grammar and punctuation only</b><small>Anthropic: the watermark can only live in the handful of corrections, which may be too few to register.</small></div>
+          <span class="tag faint">Negligible</span>
+        </div>
+        <div class="flow">
+          <div><b>Line editing you accept</b><small>Claude reworks your sentences and you paste the result back. Those are Claude's word choices now.</small></div>
+          <span class="tag faint">Partial</span>
+        </div>
+        <div class="flow">
+          <div><b>Code</b><small>Exact output leaves no free choices. Comments can carry some signal; the code itself largely cannot.</small></div>
+          <span class="tag faint">Sparse</span>
+        </div>
+        <div class="flow">
+          <div><b>Dense factual passages</b><small>Where only one word is correct, the watermark has nothing to act on.</small></div>
+          <span class="tag faint">Sparse</span>
+        </div>
+        <div class="flow">
+          <div><b>Translation</b><small>Every word in the output is chosen by Claude, even though every idea is yours.</small></div>
+          <span class="tag full">Full mark</span>
+        </div>
+        <div class="flow">
+          <div><b>Drafted from a prompt</b><small>Claude writes, you lightly edit.</small></div>
+          <span class="tag full">Full mark</span>
+        </div>
+      </div>
+
+      <h3>The translation problem deserves attention</h3>
+      <p>Someone writing in a second language who drafts in their first and translates produces a fully marked document containing entirely their own work. This is the group already most often flagged by existing style-based detectors. The watermark does not fix that. It adds a second signal pointing at the same people through an unrelated route. Any organisation writing policy should start here.</p>
+    </div>
+  </section>
+
+  <!-- 4 -->
+  <section class="block">
+    <div class="mark">Not the same thing<span>Watermarks vs AI detectors</span></div>
+    <div class="body">
+      <h2>Existing AI detectors are unrelated to this</h2>
+      <p>Turnitin, GPTZero, Pangram and similar services do not have Anthropic's key and never did. They work by looking for stylistic tells. Anthropic names two examples: the construction <em>this isn't X, it's Y</em>, and an unusual fondness for the word <em>quietly</em>. That is pattern-matching on prose habits. Checking a keyed signal is a different operation with different failure modes.</p>
+      <p>Which means the false positives already occurring have nothing to do with watermarking and will not be improved by it. They come from tools that estimate. Any organisation currently acting on the output of a stylometric classifier had that problem last year and has the same problem now.</p>
+      <div class="pull">
+        A watermark can only determine that Claude was likely involved with the content at some point. It cannot distinguish "Claude wrote this" from "Claude heavily edited this."
+        <cite>Anthropic, How Claude's text watermark works, 14 Aug 2026</cite>
+      </div>
+      <p>That sentence is the one to bring to a policy discussion. The signal has no resolution on the question that actually matters: whether the thinking was the author's.</p>
+    </div>
+  </section>
+
+  <!-- 5 -->
+  <section class="block">
+    <div class="mark">Limits<span>What it cannot tell you</span></div>
+    <div class="body">
+      <h2>Four things a positive result does not mean</h2>
+      <p><strong>It does not mean Claude wrote it.</strong> Processing counts. Editing counts. Translating counts.</p>
+      <p><strong>It does not identify you.</strong> Anthropic states the watermark carries no identifying information and cannot be traced to a person, organisation, or conversation. It says a model was involved, not which account.</p>
+      <p><strong>Absence proves nothing.</strong> Another model's output carries a different key or no watermark at all. Older Claude models, released before 2 August 2026, are still being retrofitted. Short passages carry too little signal. A full rewrite removes it.</p>
+      <p><strong>It says nothing about authorship or ownership.</strong> Anthropic is explicit that the mark does not change who owns an output or who is responsible for it.</p>
+    </div>
+  </section>
+
+  <!-- 6 -->
+  <section class="block">
+    <div class="mark">Open<span>The gaps worth pressure</span></div>
+    <div class="body">
+      <h2>What has not been answered</h2>
+      <p>First, what will not happen. The key is never released to anyone. Whoever holds it can strip the mark from generated text and forge it onto human text, so distributing it would destroy the system. It stays with Anthropic. The only live question is who may submit text and get an answer back.</p>
+      <p>On that, an engineer on Anthropic's Claude Code team said on 12 August 2026 that the endpoint will be one customers can call themselves, and described the mark as imperfect and editable. Direct access is the announced plan. Vendors will integrate it alongside.</p>
+      <p>No date has been given. Pricing, rate limits and access tiers are unpublished, and the endpoint is not callable. The file half of the system already works, since C2PA metadata on images can be read today by any compatible tool.</p>
+      <div class="pull">
+        An open, unmetered endpoint lets anyone audit the accuracy claims. It also lets anyone paraphrase, test, and repeat until the mark stops registering. A gated one prevents that and also prevents outside auditing, while the Code of Practice requires supporting third-party detection. Announcing the API did not settle this. It made it billable.
+        <cite>The unresolved bind</cite>
+      </div>
+      <p>Two dates are worth a calendar entry, and neither came from Anthropic. Systems already on the market have until 2 December 2026 to comply. A separate obligation covering interoperable third-party detection lands on 2 February 2027. That second date is the realistic point at which independent checking exists. Both come from the Code of Practice timeline and should be verified against the official text.</p>
+      <p>Unresolved throughout:</p>
+      <p>No published accuracy figures or confidence thresholds.<br>
+      No stated dispute process for a contested result.<br>
+      No pricing, rate limits, or access tier for the announced endpoint.<br>
+      No timeline for retrofitting older models.</p>
+      <p>Until those exist, an organisation cannot responsibly write a policy that treats a detection result as evidence. The reasonable position is to settle the process before the tool arrives. Organisations that wait will settle it during their first contested case.</p>
+    </div>
+  </section>
+
+  <footer>
+    <p>Sources: Anthropic, <em>How Claude's text watermark works</em> (14 August 2026) and the Claude support article on marking AI-generated content. Google DeepMind, SynthID-Text, <em>Nature</em> (2024).</p>
+    <p>The detection model in this page illustrates the principle. It is not a working detector. No tool on this page examines your text, and none could.</p>
+  </footer>
+
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  /* ---- hero fork ---- */
+  var slot = document.getElementById('slot');
+  var words = ['overcast','grey','damp','still','clear','sharp','wet'];
+  var i = 0;
+  var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if(!reduce){
+    setInterval(function(){
+      slot.classList.add('fade');
+      setTimeout(function(){
+        i = (i+1) % words.length;
+        slot.textContent = words[i];
+        slot.classList.remove('fade');
+      }, 300);
+    }, 2100);
+  }
+
+  /* ---- instrument ---- */
+  var keyBtns = Array.prototype.slice.call(document.querySelectorAll('.keybtn'));
+  var len = document.getElementById('len');
+  var mix = document.getElementById('mix');
+  var lenOut = document.getElementById('lenOut');
+  var mixOut = document.getElementById('mixOut');
+  var verdict = document.getElementById('verdict');
+  var bar = document.getElementById('bar');
+  var gauge = document.getElementById('gauge');
+  var explain = document.getElementById('explain');
+  var stat = document.getElementById('stat');
+  var mode = 'right';
+
+  function commas(n){ return n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ','); }
+
+  function render(){
+    var words = parseInt(len.value,10);
+    var share = parseInt(mix.value,10)/100;
+    lenOut.textContent = commas(words) + ' words';
+    mixOut.textContent = Math.round(share*100) + '%';
+
+    // roughly a third of tokens are low-stakes enough to carry signal
+    var forks = words * 0.33 * share;
+    var z = Math.sqrt(Math.max(forks,0)) * 0.22;
+    var conf = 1 - Math.exp(-Math.pow(z,1.6)/3.2);
+    if(!isFinite(conf) || conf < 0) conf = 0;
+
+    gauge.className = 'gauge';
+
+    if(mode === 'right'){
+      var pct = Math.round(conf*100);
+      bar.style.width = Math.max(pct,1) + '%';
+      if(share === 0){
+        verdict.textContent = 'No signal';
+        explain.textContent = 'None of the wording is Claude\u2019s, so there are no watermarked choices anywhere in the document. Discussion and critique that you acted on yourself land here.';
+      } else if(pct < 25){
+        verdict.textContent = 'Below threshold';
+        explain.textContent = 'There is a real signal, but too little of it to separate from chance. This is the grammar-pass case, and the short-passage case.';
+      } else if(pct < 70){
+        verdict.textContent = 'Weak signal';
+        explain.textContent = 'Enough to suggest Claude touched the text. Too little to say what it did. Wrote it, edited it, and translated it read the same at this level.';
+      } else {
+        verdict.textContent = 'Claude was involved';
+        explain.textContent = 'A confident reading \u2014 and still only that Claude was involved at some point. The mark cannot tell a drafted paper from a translated one from a heavily line-edited one.';
+      }
+      stat.textContent = '\u2248 ' + commas(Math.round(forks)) + ' watermarked choices \u00b7 confidence ' + pct + '%';
+    }
+
+    if(mode === 'wrong'){
+      gauge.className = 'gauge chance';
+      bar.style.width = '4%';
+      verdict.textContent = 'Nothing readable';
+      explain.textContent = 'Without the key there is no pattern to correlate against. The result sits at chance no matter how long the passage is or how much of it Claude wrote \u2014 move the sliders and watch nothing happen.';
+      stat.textContent = 'correlation \u2248 0 \u00b7 indistinguishable from unwatermarked text';
+    }
+
+    if(mode === 'style'){
+      gauge.className = 'gauge warn';
+      var guess = 30 + Math.round(share*45) + (words < 400 ? 18 : 0);
+      if(guess > 96) guess = 96;
+      bar.style.width = guess + '%';
+      verdict.textContent = 'A guess';
+      explain.textContent = 'This tool has no key, so it is scoring prose habits. Formulaic human writing, non-native English, and edited drafts all score high for that reason. The number moves. It measures something other than the watermark.';
+      stat.textContent = 'stylometric score ' + guess + '% \u00b7 no relationship to the watermark';
+    }
+  }
+
+  keyBtns.forEach(function(b){
+    b.addEventListener('click', function(){
+      keyBtns.forEach(function(o){ o.setAttribute('aria-pressed','false'); });
+      b.setAttribute('aria-pressed','true');
+      mode = b.getAttribute('data-key');
+      render();
+    });
+  });
+  len.addEventListener('input', render);
+  mix.addEventListener('input', render);
+  render();
+})();
+</script>
+</body>
+</html>
